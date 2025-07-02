@@ -1,0 +1,106 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using System.Threading.Tasks;
+
+public class RobotController : MonoBehaviour
+{
+    // naming constraints do not change
+    [SerializeField] private WheelCollider FLC;
+    [SerializeField] private WheelCollider FRC;
+    [SerializeField] private WheelCollider RLC;
+    [SerializeField] private WheelCollider RRC;
+
+    [SerializeField] private Transform FLT;
+    [SerializeField] private Transform FRT;
+    [SerializeField] private Transform RLT;
+    [SerializeField] private Transform RRT;
+
+    [SerializeField] private Transform FRS;
+    [SerializeField] private Transform L1S;
+    [SerializeField] private Transform L2S;
+    [SerializeField] private Transform L3S;
+    [SerializeField] private Transform R1S;
+    [SerializeField] private Transform R2S;
+    [SerializeField] private Transform R3S;
+    [SerializeField] private Transform ORS;
+
+    private Rigidbody rigidbody1;
+   
+   
+    private void Start()
+    {    
+        
+        rigidbody1 = GetComponent<Rigidbody>();
+        UdjustingSensors();
+    }
+    private void UdjustingSensors()
+    {
+        L1S.transform.Rotate(0, -7.5f, 0);
+        R1S.transform.Rotate(0, 7.5f, 0);
+        L2S.transform.Rotate(5, -14, 0);
+        R2S.transform.Rotate(5, 14, 0);
+        L3S.transform.Rotate(15, -80, 0);
+        R3S.transform.Rotate(15, 80, 0);
+        ORS.transform.Rotate(50, 180, 0);
+    }
+    private float rrdAngle, momentumValue, Accelerations;
+    private float sensorsReach = 30;
+    private void FixedUpdate()
+    {
+        DriveSafe();
+        BeOnrrd();
+        FRC.motorTorque = Accelerations;
+        FLC.motorTorque = Accelerations;
+        RRC.motorTorque = Accelerations;
+        RLC.motorTorque = Accelerations;
+        SycrosizeWheels(FRC,FRT);
+        SycrosizeWheels(FLC,FLT);
+        SycrosizeWheels(RRC,RRT);
+        SycrosizeWheels(RLC,RLT);
+        AccelerationManagment();
+        rrdAngle = ORS.eulerAngles.x;
+        momentumValue = rigidbody1.velocity.magnitude;
+    }
+    private void DriveSafe()
+    {
+        if (OjDetct(L1S, sensorsReach)) rgt(0.4f); 
+        else if (OjDetct(R1S, sensorsReach)) rgt(-0.4f); 
+    }
+    private bool rrd(Transform sencor, float sencorl)
+    {
+        return (Physics.Raycast(sencor.position, sencor.TransformDirection(Vector3.forward), sencorl, 1 << 9));
+    }
+    private void BeOnrrd()
+    {
+        if (!rrd(L3S, sensorsReach)) rgt(0.5f); 
+        else if(!rrd(R3S, sensorsReach)) rgt(-0.5f); 
+        else if(!rrd(L2S, sensorsReach) && rrd(R2S, sensorsReach)) rgt(1); 
+        else if(!rrd(R2S, sensorsReach) && rrd(L2S, sensorsReach)) rgt(-1); 
+        else rgt(0f); 
+    }
+    private bool OjDetct(Transform sencor, float sencorl)
+    {
+        return (Physics.Raycast(sencor.position, sencor.TransformDirection(Vector3.forward), sencorl, 1 << 10));
+    } 
+    private void AccelerationManagment()
+    {
+        if (momentumValue < 4 && Accelerations < 250) { Accelerations += 3; }
+        if (momentumValue > 4.5f && Accelerations > 0) { Accelerations -= 5; }
+        if (rrdAngle < 62 && rrdAngle > 51 && momentumValue < 3) { Accelerations = 350; }
+    }
+    private void rgt(float turningFactor)
+    {
+        FLC.steerAngle = turningFactor * 35;
+        FRC.steerAngle = turningFactor * 35;
+    } 
+    private void SycrosizeWheels(WheelCollider colderOFwhel, Transform trfmOfWheel)
+    {
+        Vector3 pos;
+        Quaternion orn;
+        colderOFwhel.GetWorldPose(out pos, out orn);
+        trfmOfWheel.rotation = orn;
+        trfmOfWheel.position = pos;
+    }
+}
